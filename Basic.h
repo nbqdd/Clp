@@ -21,7 +21,11 @@ class Hero
 public:
     Hero(){memset(visionLimit,0,sizeof(visionLimit));}
     int HP;//血
+#ifdef TEST
     int EN=30;//Ji,测试版初始30个
+#else
+    int EN=0;
+#endif
     int order;
     int damage=1;//默认伤害为1
     int eff=1;//出Ji效率，一抵几，默认1
@@ -29,9 +33,9 @@ public:
     int attackLimit=0;//辅助的攻击受限制
     int visionLimit[N];//视野限制，为0表示能选中，大于0表示不能选中
     int team;//阵营
-    vector <int> History;//历史记录
+    vector <double> History;//历史记录
     void attack(int Actioner, int Target, int level)
-    {if (level<=EN){att[Actioner][Target]=level;cout<<"Player"<<Actioner<<" attacked "<<"Player"<<Target<<" with level"<<level<<endl;EN-=level;def[Target][Actioner]=level;RecordHistory(0);}else cout<<"invalid attack";}
+    {if (level<=EN){att[Actioner][Target]=level;cout<<"Player"<<Actioner<<" attacked "<<"Player"<<Target<<" with level"<<level<<endl;EN-=level;def[Target][Actioner]=level;}else cout<<"invalid attack";}
     void AskForAttack();
     void energize(){EN+=eff;RecordHistory(1);}//出Ji
     void defend();//防
@@ -42,11 +46,11 @@ public:
     virtual void count(int i){};
     
 public:
-    virtual void ability(){cout<<"No ability";}//有待重载
+    virtual void ability(){RecordHistory(-1); cout<<"No ability";}//有待重载
     virtual void passive(){}//被动
     virtual void PrePassive(){}
     virtual void random(){};
-    void RecordHistory(int k){History.push_back(k);}//记录
+    void RecordHistory(double k){History.push_back(k);}//记录
     
     
     
@@ -61,28 +65,29 @@ public:
     int level;
     
 };
-vector<shared_ptr<Hero>>Hlist;
+vector<shared_ptr<Hero>>Hlist;//“Hero List”，用来存放Hero的子类，即各个具体英雄。
 void Hero::AskForAttack()
 {
     
-    int i,k;
+    int i=99,k;
     int j=this->order;
     
     
-    
-    cout<<" Attack Target?"<<endl;
-    cin>>i;
-    if(this->visionLimit[i]==0)//是否能选中攻击目标
-   {
-       cout<<" Attack Level?"<<endl;
-       cin>>k;
-       
-       if(this->attackLimit==0)attack(j,i,k);
-       if(this->attackLimit==1){if (k==1||k==5||k==10)attack(j,i,k);else cout<<"Your Attack is Limited!Only use 1,5,10\n";}
-       
-   }
-   else cout<<"You can not choose this target";
-    
+    RecordHistory(0);
+    cout<<" 请选择攻击目标，输入-1来结束。"<<endl;
+    for(;i>-1;)
+    {   cin>>i;
+        if(i>=0&&this->visionLimit[i]==0)//是否能选中攻击目标
+        {
+            cout<<" Attack Level?"<<endl;
+            cin>>k;
+            
+            if(this->attackLimit==0)attack(j,i,k);
+            if(this->attackLimit==1){if (k==1||k==5||k==10)attack(j,i,k);else cout<<"Your Attack is Limited!Only use 1,5,10\n";}//辅助攻击只能用1（小刀）、5（鬼刀）、10（加特林）
+            
+        }
+        else {cout<<"你的回合结束\n";i=-1;}
+    }
     
 }
 void Hero::defe(int i)
@@ -97,10 +102,10 @@ void Hero::defe(int i)
             break;
         case 1:
             for(k=0;k<N;k++)
-            {def[k][j]=9;this->EN-=1;}
+            {def[k][j]=9;}this->EN-=1;break;
         case 2:
             for(k=0;k<N;k++)
-            {def[k][j]=10;this->EN-=2;}
+            {def[k][j]=10;}this->EN-=2;break;
         default:
             break;
     }}
@@ -115,17 +120,37 @@ void Hero::defend()
     switch (i) {
         case 0:
             for(k=0;k<N;k++)
-            {def[k][j]=4;RecordHistory(30);}
-            break;
+            {def[k][j]=4;}RecordHistory(30);
+            break;      //普通防0费，可以抵挡小于等于4级（火刀）的攻击
         case 1:
             for(k=0;k<N;k++)
-            {def[k][j]=9;this->EN-=1;RecordHistory(31);}
+            {def[k][j]=9;}
+            this->EN-=1;
+            RecordHistory(31);
+            break;   //超防1费，可以抵挡小于等于9级（九阴真经）的攻击
         case 2:
             for(k=0;k<N;k++)
-            {def[k][j]=10;this->EN-=2;RecordHistory(32);}
+            {def[k][j]=10;}
+            this->EN-=2;RecordHistory(32);  //无敌防2费，可以抵挡小于等于10级（加特林）的攻击
+            break;
         default:
             break;
     }
+}
+
+void showHistory()
+{ cout<<"历史记录：\n";
+    for(int k=0;k<N;k++)
+    {
+        string nome=Hlist[k]->name;
+        cout<<nome<<"的历史记录为：";
+        
+        for (size_t i = 0; i < Hlist[k]->History.size(); ++i)
+        {
+           
+            cout << Hlist[k]->History[i] << "; ";
+        }cout<<endl;
+    }cout<<endl;
 }
 class Game
 {
@@ -169,27 +194,50 @@ public:
     }
     int ifDead(int i)
     {
-        if (Hlist[i]->HP==0){cout<<Hlist[i]->name<<" is dead\n";return 0;}
+        if (Hlist[i]->HP==0){return 0;}
         else return 1;
-
     }
-    bool ifEnd()
+    void showDeath()//用于展示死亡信息,并设置死者不可被选中
+    {
+        for(int i=0;i<N;i++)
+        {
+            if(Hlist[i]->HP<=0)
+            {
+                cout<<Hlist[i]->name<<" is dead\n";
+                Hlist[i]->EN=-100;
+                for(int j=0;j<N;j++)
+                { Hlist[j]->visionLimit[i]+=1;}
+            }
+        }
+    }
+    bool ifEndSoloDown() //单人阵亡全队失败模式
     {   int j=0;
         int k=1;
         for(j=0;j<N;j++)
         {k*=ifDead(j);}
-        if(k==1)return false;
+        if(k==1)return false; //k==1表示所有人都活着，游戏继续
         else return true;
     }
+    bool ifEndTeamDown()
+    {
+        for(int j=0;j<N;j++)
+        {
+            int p=0;
+            for(int m=0;m<N;m++)
+            {
+                if(Hlist[m]->team==Hlist[j]->team)
+                    p+=ifDead(m);
+            } if(p==0)return true;
+        }
+        return false;
+    }//全队阵亡模式
     void showState(int i)
     {
-        cout<<Hlist[i]->name<<Hlist[i]->order<<" HP="<<Hlist[i]->HP<<",EN="<<Hlist[i]->EN<<endl;
+        cout<<Hlist[i]->name<<Hlist[i]->order<<" 血量为"<<Hlist[i]->HP<<",Ji数为"<<Hlist[i]->EN<<endl;
     }
     void roundRun()
     {
-      //  int t=1;//计数器
-       
-        //srand(time(nullptr));
+     
        
         do{cout<<"Round "<<count<<" Start!\n";
             count++;for(int i=0;i<N;i++){Hlist[i]->roundCount++;}//回合计数
@@ -214,6 +262,7 @@ public:
                     case 4:
                         Hlist[j]->ability();break;
                     default:
+                        Hlist[j]->RecordHistory(-1);
                         break;
                 }
                 }
@@ -235,15 +284,20 @@ public:
                     Hlist[j]->passive();
                     
                 }
-         //   cout<<Hlist[0]->visionLimit[2];
+        
                 //显示当前数据
+            cout<<"\n第"<<count-1<<"回合结算后数据：\n";
                 for (j=0;j<N;j++)
                 {showState(j);}
             cout<<endl;
-            cout<<*(Hlist[2]->History.end()-1);
-            }while(ifEnd()==false);
+            cout<<endl;
+    #ifdef TEST
+            showHistory();
+    #endif
+            showDeath();
+             }while(ifEndTeamDown()==false);
      
-        
+        cout<<"Game Over!"<<endl;
     }
     
     

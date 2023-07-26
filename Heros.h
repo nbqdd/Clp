@@ -18,7 +18,7 @@ class Priest: public Hero //牧师
 public:
     Priest(){HP=3;type=2;name="牧师";attackLimit=1;maxHP=5;}
     virtual void ability()
-    {   RecordHistory(4);
+    {   RecordHistory(4.01);
         int j;
         cout<<" 奶1 盾2 ";
         cin>>j;
@@ -218,7 +218,7 @@ public:
 
 class Groot:public Hero //"I am Groot"
 {
-public:Groot(){HP=3;name="树人";type=9;}
+public:Groot(){HP=3;name="树人";type=9;attackLimit=1;}
 int round[N]={0};//用于荆棘保护的倒计时
 
 int p= this->order;
@@ -226,18 +226,20 @@ void causeProtection(int k)//对k队友制造保护
 {
     for (int m=0;m<N;m++)
     {
+    
         if (Hlist[m]->team!=this->team)   //若m不在树人阵营
         {if (
              (round[this->order]==3&&(*(Hlist[m]->History.end()-1)<31))||
-            (round[this->order]==2&&(*Hlist[m]->History.end()-1)<31&&(*Hlist[m]->History.end()-2)<31)||
-             (round[this->order]==1&&(*Hlist[m]->History.end()-1)<31&&(*Hlist[m]->History.end()-2)<31&&(*Hlist[m]->History.end()-3)<31)
+            (round[this->order]==2&&(*(Hlist[m]->History.end()-1))<31&&(*(Hlist[m]->History.end()-2))<31)||
+             (round[this->order]==1&&(*(Hlist[m]->History.end()-1))<31&&(*(Hlist[m]->History.end()-2))<31&&(*(Hlist[m]->History.end()-3))<31)
              )
-    
-            
-        
              
+            {
+                Hlist[m]->visionLimit[k]+=1;
+               
+            }
             
-            Hlist[m]->visionLimit[k]+=1;}
+        }
         
     }//m不在树人阵营，且他没有出超防解除控制，那么他不能攻击k
       
@@ -245,10 +247,12 @@ void causeProtection(int k)//对k队友制造保护
 }
 virtual void ability()//荆棘丛生
     
-    { RecordHistory(4);
-        cout<<"荆棘for Team "<<this->team<<endl;
+    { RecordHistory(4.09);
+        cout<<" 荆棘for Team "<<this->team<<endl;
     if(EN>=3)
     {
+        EN+=1;
+        defe(1);
         for(int k=0;k<N;k++)
         { if (Hlist[k]->team == this->team ) round[k]=3;}//刷新对k保护的倒计时
         EN-=3;
@@ -256,6 +260,14 @@ virtual void ability()//荆棘丛生
     }
     else cout<<"invalid ability\n";
 }
+    void Groot_Cure()  //树人治疗
+    {
+        int i;
+        cout<<" Groot:Choose a Player and Cure him/her\n";
+        cin>>i;
+        Hlist[i]->HP+=1;
+        cout<<" Player "<<i<<" is cured by Groot.\n";
+    }
 virtual void passive()
     {
     
@@ -264,11 +276,20 @@ virtual void passive()
         
         if (Hlist[k]->team ==this->team && round[k]>0)//若为己方目标
         {
-            causeProtection(k);cout<<"Player "<<k<<" is protected \n";
+            causeProtection(k);
         }
+        
         round[k]-=1;//倒计时-1
+    }//完成荆棘的结算
+    int j=0;
+    for(int k=0;k<N;k++)
+    {
+        if(att[this->order][k]>def[this->order][k])//树人对k造成了伤害
+            j++;//统计本回合树人造成的伤害
     }
-   
+   if (j>1)//若伤害大于等于2，触发治疗被动
+       Groot_Cure();
+    
 }
 };
 
